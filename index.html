@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grsai 图像工作站 - 文生图 / 图生图</title>
+  <meta name="description" content="基于 Grsai API 的图像生成工具：文生图、图生图、批量生成、打包下载。API Key 仅保存在内存，不落盘。">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%236c5ce7'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif'%3EG%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <!-- ======== 顶栏 ======== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo">G</div>
+      <div>
+        <h1>Grsai 图像工作站</h1>
+        <p class="brand-sub">文生图 · 图生图 · 批量生成</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <div class="node-group" title="API 节点选择">
+        <label for="nodeSelect">节点</label>
+        <select id="nodeSelect">
+          <option value="https://grsaiapi.com">海外直连</option>
+          <option value="https://grsai.dakka.com.cn">国内直连</option>
+          <option value="custom">自定义…</option>
+        </select>
+        <input type="text" id="customNodeInput" class="hidden" placeholder="https://your-host.com" spellcheck="false">
+      </div>
+      <button id="testConnBtn" class="btn ghost" title="验证 Key 与节点连通性（不消耗积分）">测试连接</button>
+      <div class="key-chip" id="keyChip">
+        <span class="key-dot" id="keyDot"></span>
+        <span id="keyChipText">未导入 KEY</span>
+      </div>
+      <button id="importKeyBtn" class="btn primary">导入 KEY</button>
+    </div>
+  </header>
+
+  <!-- ======== 主体 ======== -->
+  <main class="layout">
+    <!-- 左：生成表单 -->
+    <section class="panel form-panel" aria-label="生成参数">
+      <h2 class="panel-title">生成参数</h2>
+
+      <div class="field">
+        <label for="modelSelect">模型 <span class="req">*</span></label>
+        <select id="modelSelect"></select>
+        <div class="field-hint" id="modelHint"></div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="ratioSelect">画面比例</label>
+          <select id="ratioSelect"></select>
+        </div>
+        <div class="field" id="tierField">
+          <label for="tierSelect">分辨率档位</label>
+          <select id="tierSelect"></select>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field" id="qualityField">
+          <label for="qualitySelect">质量</label>
+          <select id="qualitySelect"></select>
+        </div>
+        <div class="field checkbox-field" id="bgField">
+          <label class="checkbox-label">
+            <input type="checkbox" id="bgTransparent">
+            <span>透明背景</span>
+          </label>
+          <span class="field-hint-inline">仅部分模型支持</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="label-row">
+          <label for="promptInput">提示词 <span class="req">*</span></label>
+          <div class="preset-chips" id="presetChips"></div>
+        </div>
+        <textarea id="promptInput" rows="6" placeholder="描述你想要生成的画面，例如：一只橘猫宇航员漂浮在太空中，扁平插画风格，暖色调…（上传参考图后可描述如何编辑图片）"></textarea>
+        <div class="field-hint"><span id="promptCount">0</span> 字</div>
+      </div>
+
+      <div class="field">
+        <label>参考图（图生图，可选）</label>
+        <div class="upload-zone" id="uploadZone" tabindex="0" role="button" aria-label="上传参考图">
+          <div class="upload-empty" id="uploadEmpty">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <p>点击选择 或 拖拽图片到此处</p>
+            <p class="upload-formats">支持 JPG / PNG / WEBP，可多张</p>
+          </div>
+          <input type="file" id="refFileInput" accept=".jpg,.jpeg,.png,.webp" multiple hidden>
+          <div class="thumbs" id="refThumbs"></div>
+        </div>
+        <div class="upload-tip">不上传参考图 = 文生图；上传后 = 图生图（编辑/改写参考图）</div>
+      </div>
+
+      <details class="advanced" id="advancedBox">
+        <summary>高级选项（GPT 系列遮罩）</summary>
+        <div class="field">
+          <label>遮罩图 Mask（可选，白色区域将被重绘）</label>
+          <div class="mask-row">
+            <button type="button" class="btn ghost small" id="maskSelectBtn">选择遮罩图片</button>
+            <img id="maskPreview" class="mask-preview hidden" alt="遮罩预览">
+            <button type="button" class="btn ghost small hidden" id="maskClearBtn">清除</button>
+            <input type="file" id="maskFileInput" accept=".jpg,.jpeg,.png,.webp" hidden>
+          </div>
+        </div>
+      </details>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="countSelect">批量数量</label>
+          <select id="countSelect"></select>
+        </div>
+        <div class="field cost-field">
+          <label>预计费用</label>
+          <div class="cost-value" id="costValue">--</div>
+        </div>
+      </div>
+
+      <button id="generateBtn" class="btn primary big generate-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        开始生成
+      </button>
+
+      <p class="privacy-note">🔒 API Key 仅保存在当前页面内存中，关闭页面即失效，不会上传或写入任何存储。</p>
+    </section>
+
+    <!-- 右：任务列表 -->
+    <section class="panel tasks-panel" aria-label="生成任务">
+      <div class="tasks-head">
+        <h2 class="panel-title">生成任务 <span class="badge" id="taskCountBadge">0</span></h2>
+        <div class="tasks-toolbar">
+          <button class="btn ghost small" id="selectAllBtn">全选</button>
+          <button class="btn ghost small" id="zipBtn" title="将选中的已完成任务打包为 ZIP">打包下载</button>
+          <button class="btn ghost small danger" id="deleteBtn">删除选中</button>
+          <button class="btn ghost small" id="retryBtn">重提失败</button>
+          <button class="btn ghost small" id="clearDoneBtn">清空已完成</button>
+        </div>
+      </div>
+      <div class="tasks-list" id="tasksList">
+        <div class="tasks-empty" id="tasksEmpty">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <p>还没有任务</p>
+          <p class="sub">导入 KEY → 选模型 → 写提示词 → 开始生成</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ======== KEY 导入弹窗 ======== -->
+  <div class="modal-overlay hidden" id="keyModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="导入 API KEY">
+      <h3>导入 API KEY</h3>
+      <p class="modal-desc">在 <a href="https://grsai.ai/dashboard/api-keys" target="_blank" rel="noopener">grsai.ai 控制台</a> 创建并复制 Key 后粘贴到此处。Key 仅保存在内存中，刷新/关闭页面后需重新导入。</p>
+      <textarea id="keyInput" rows="3" placeholder="粘贴以 sk- 开头的 API Key…" spellcheck="false" autocomplete="off"></textarea>
+      <div class="modal-row">
+        <button class="btn ghost small" id="keyFileBtn">从 .txt 文件导入</button>
+        <input type="file" id="keyFileInput" accept=".txt,text/plain" hidden>
+        <span class="field-hint" id="keyFileName"></span>
+      </div>
+      <p class="modal-error hidden" id="keyModalError"></p>
+      <div class="modal-actions">
+        <button class="btn ghost" id="keyCancelBtn">取消</button>
+        <button class="btn primary" id="keySaveBtn">确认导入</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== 图片预览灯箱 ======== -->
+  <div class="lightbox hidden" id="lightbox">
+    <img id="lightboxImg" alt="预览大图">
+    <button class="lightbox-close" id="lightboxClose" aria-label="关闭">×</button>
+  </div>
+
+  <!-- ======== Toast ======== -->
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <script src="./vendor/jszip.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
