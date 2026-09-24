@@ -1,5 +1,7 @@
 # Grsai 图像工作站
 
+> 🌐 **在线使用：<https://jialiang37.github.io/grsai-studio/>**（收藏此链接，下次直接打开）
+
 基于 [Grsai API](https://grsai.ai) 的纯静态图像生成网页：**文生图 · 图生图 · 批量生成 · 打包下载**。
 
 无需服务器、无需构建，可直接部署在 GitHub Pages 或任何静态托管上。
